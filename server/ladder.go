@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -26,6 +26,7 @@ func newLadder() *Ladder {
 
 func (l *Ladder) run() {
 	ticker := time.NewTicker(time.Second / 128)
+
 	for {
 		select {
 		case client := <-l.register:
@@ -52,8 +53,7 @@ func (l *Ladder) run() {
 				}
 			}
 		case time := <-ticker.C:
-			message := fmt.Sprintf("Tick %s", time)
-			log.Println(message)
+			message := fmt.Sprintf(`{"TICK" : "%s"}`, time)
 			for client := range l.clients {
 				select {
 				case client.send <- []byte(message):
