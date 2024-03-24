@@ -27,7 +27,7 @@ var upgrader = websocket.Upgrader{
 
 type Client struct {
 	ladder *Ladder
-
+	game   *Game
 	// The websocket connection.
 	conn *websocket.Conn
 	send chan []byte
