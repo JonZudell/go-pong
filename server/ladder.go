@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 )
 
@@ -15,7 +16,7 @@ type Ladder struct {
 	log        [][]byte
 }
 
-func newLadder() *Ladder {
+func NewLadder() *Ladder {
 	return &Ladder{
 		broadcast:  make(chan []byte),
 		register:   make(chan *Client),
@@ -70,4 +71,21 @@ func (l *Ladder) Shutdown(ctx context.Context) {
 	for client := range l.clients {
 		client.ladder.unregister <- client
 	}
+}
+
+func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	log.Println("Request:", r)
+	conn, err := upgrader.Upgrade(w, r, nil)
+	log.Println("Conn:", conn)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	client := &Client{ladder: l, conn: conn, send: make(chan []byte, 256)}
+	client.ladder.register <- client
+
+	// Allow collection of memory referenced by the caller by doing all work in
+	// new goroutines.
+	go client.writePump()
+	go client.readPump()
 }

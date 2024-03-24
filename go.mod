@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/stretchr/testify v1.9.0
+	github.com/theckman/go-securerandom v0.1.1
 )
 
 require (

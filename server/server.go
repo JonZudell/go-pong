@@ -22,12 +22,11 @@ func NewServer(addr string) *Server {
 		ReadTimeout:  time.Second,
 		WriteTimeout: time.Second,
 	}
-	ladder := newLadder()
-	go ladder.run()
+	ladder := NewLadder()
 	r := mux.NewRouter()
 	r.HandleFunc("/", logging(index))
 	r.HandleFunc("/upgrade", logging(func(w http.ResponseWriter, r *http.Request) {
-		serveWs(ladder, w, r)
+		ladder.ServeHTTP(w, r)
 	}))
 	server.Handler = r
 	return &Server{server: server, ladder: ladder}
