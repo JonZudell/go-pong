@@ -8,18 +8,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
-	"github.com/theckman/go-securerandom"
 )
 
 func TestLadder(t *testing.T) {
-	req, err := http.NewRequest("GET", "/", nil)
-	req.Header.Set("Connection", "upgrade")
-	req.Header.Set("Upgrade", "websocket")
-	req.Header.Set("Sec-Websocket-Version", "13")
-	rStr, baseErr := securerandom.Base64OfBytes(16)
-	req.Header.Set("Sec-WebSocket-Key", rStr)
-	require.NoError(t, err)
-	require.NoError(t, baseErr)
 	ladder := NewLadder()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ladder.ServeHTTP(w, r)

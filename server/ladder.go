@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -10,6 +9,7 @@ import (
 
 type Ladder struct {
 	clients    map[*Client]bool
+	games      map[*Game]bool
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
@@ -26,8 +26,9 @@ func NewLadder() *Ladder {
 }
 
 func (l *Ladder) run() {
-	ticker := time.NewTicker(time.Second / 128)
+	ticker := time.NewTicker(time.Second)
 
+	gamesTicker := time.NewTicker(time.Second / 128)
 	for {
 		select {
 		case client := <-l.register:
@@ -42,30 +43,38 @@ func (l *Ladder) run() {
 				delete(l.clients, client)
 				close(client.send)
 			}
-		case message := <-l.broadcast:
-			log.Println("Broadcasting Message to all Clients")
+		case <-ticker.C:
+			clientsInGame := make([]*Client, 0)
+			unpairedClients := make([]*Client, 0)
+			for game := range l.games {
+				clientsInGame = append(clientsInGame, game.clientA, game.clientB)
+			}
+
 			for client := range l.clients {
-				select {
-				case client.send <- message:
-					l.log = append(l.log, message)
-				default:
-					close(client.send)
-					delete(l.clients, client)
+				if !contains(clientsInGame, client) {
+					unpairedClients = append(unpairedClients, client)
 				}
 			}
-		case time := <-ticker.C:
-			message := fmt.Sprintf(`{"TICK" : "%s"}`, time)
-			for client := range l.clients {
-				select {
-				case client.send <- []byte(message):
-				default:
-					close(client.send)
-					delete(l.clients, client)
-				}
+
+			log.Println("Clients in Game:", len(clientsInGame))
+			log.Println("Clients not in game:", len(unpairedClients))
+		case <-gamesTicker.C:
+			for game := range l.games {
+				game.update()
 			}
 		}
 	}
 }
+
+func contains(clientsInGame []*Client, client *Client) bool {
+	for _, c := range clientsInGame {
+		if c == client {
+			return true
+		}
+	}
+	return false
+}
+
 func (l *Ladder) Shutdown(ctx context.Context) {
 	log.Println("Shutdown Ladder")
 	for client := range l.clients {
@@ -74,9 +83,7 @@ func (l *Ladder) Shutdown(ctx context.Context) {
 }
 
 func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Println("Request:", r)
 	conn, err := upgrader.Upgrade(w, r, nil)
-	log.Println("Conn:", conn)
 	if err != nil {
 		log.Println(err)
 		return
@@ -84,8 +91,6 @@ func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	client := &Client{ladder: l, conn: conn, send: make(chan []byte, 256)}
 	client.ladder.register <- client
 
-	// Allow collection of memory referenced by the caller by doing all work in
-	// new goroutines.
 	go client.writePump()
 	go client.readPump()
 }
