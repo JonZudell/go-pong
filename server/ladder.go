@@ -35,7 +35,13 @@ func NewLadder() *Ladder {
 		games:      make(map[*Game]bool),
 	}
 }
-
+func (l *Ladder) unregisterClients(client *Client) {
+	log.Println("Unregistering Client")
+	if _, ok := l.clients[client]; ok {
+		delete(l.clients, client)
+		close(client.send)
+	}
+}
 func (l *Ladder) run() {
 	ticker := time.NewTicker(time.Second)
 
@@ -49,48 +55,38 @@ func (l *Ladder) run() {
 				client.send <- l.log[line]
 			}
 		case client := <-l.unregister:
-			log.Println("Unregistering Client")
-			if _, ok := l.clients[client]; ok {
-				if client.game != nil {
-					if (client.game.clientA == client) || (client.game.clientB == client) {
-						if client.game.clientA == client {
-							client.game.clientB.send <- []byte("Opponent Disconnected")
-						} else {
-							client.game.clientA.send <- []byte("Opponent Disconnected")
-						}
-					}
-					delete(l.games, client.game)
-				}
-				delete(l.clients, client)
-				close(client.send)
-			}
+			l.unregisterClients(client)
 		case <-ticker.C:
-			clientsInGame := make([]*Client, 0)
-			unpairedClients := make([]*Client, 0)
-			for game := range l.games {
-				clientsInGame = append(clientsInGame, game.clientA, game.clientB)
-			}
-			for client := range l.clients {
-				if !contains(clientsInGame, client) {
-					unpairedClients = append(unpairedClients, client)
-				}
-			}
-
-			log.Println("Games:", len(l.games))
-			log.Println("Clients in Game:", len(clientsInGame))
-			log.Println("Clients not in game:", len(unpairedClients))
-			paired := PairList(unpairedClients)
-			for _, pair := range paired {
-				game := &Game{clientA: pair.First.(*Client), clientB: pair.Second.(*Client), playerA: &Paddle{x: 10, y: 10, width: 10, height: 100}, playerB: &Paddle{x: 10, y: 10, width: 10, height: 100}, ball: &Ball{x: 10, y: 10, vx: 10, vy: 10, radius: 10}, scoreA: 0, scoreB: 0}
-				pair.First.(*Client).game = game
-				pair.Second.(*Client).game = game
-				l.games[game] = true
-			}
+			l.ladderTick()
 		case <-gamesTicker.C:
 			for game := range l.games {
 				game.update()
 			}
 		}
+	}
+}
+
+func (l *Ladder) ladderTick() {
+	clientsInGame := make([]*Client, 0)
+	unpairedClients := make([]*Client, 0)
+	for game := range l.games {
+		clientsInGame = append(clientsInGame, game.clientA, game.clientB)
+	}
+	for client := range l.clients {
+		if !contains(clientsInGame, client) {
+			unpairedClients = append(unpairedClients, client)
+		}
+	}
+
+	log.Println("Games:", len(l.games))
+	log.Println("Clients in Game:", len(clientsInGame))
+	log.Println("Clients not in game:", len(unpairedClients))
+	paired := PairList(unpairedClients)
+	for _, pair := range paired {
+		game := &Game{clientA: pair.First.(*Client), clientB: pair.Second.(*Client), playerA: &Paddle{x: 10, y: 10, width: 10, height: 100}, playerB: &Paddle{x: 10, y: 10, width: 10, height: 100}, ball: &Ball{x: 10, y: 10, vx: 10, vy: 10, radius: 10}, scoreA: 0, scoreB: 0}
+		pair.First.(*Client).game = game
+		pair.Second.(*Client).game = game
+		l.games[game] = true
 	}
 }
 
