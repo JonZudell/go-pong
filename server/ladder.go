@@ -45,7 +45,6 @@ func (l *Ladder) unregisterClients(client *Client) {
 func (l *Ladder) run() {
 	ticker := time.NewTicker(time.Second)
 
-	gamesTicker := time.NewTicker(time.Second / 128)
 	for {
 		select {
 		case client := <-l.register:
@@ -58,10 +57,6 @@ func (l *Ladder) run() {
 			l.unregisterClients(client)
 		case <-ticker.C:
 			l.ladderTick()
-		case <-gamesTicker.C:
-			for game := range l.games {
-				game.update()
-			}
 		}
 	}
 }
@@ -83,10 +78,21 @@ func (l *Ladder) ladderTick() {
 	log.Println("Clients not in game:", len(unpairedClients))
 	paired := PairList(unpairedClients)
 	for _, pair := range paired {
-		game := &Game{clientA: pair.First.(*Client), clientB: pair.Second.(*Client), playerA: &Paddle{x: 10, y: 10, width: 10, height: 100}, playerB: &Paddle{x: 10, y: 10, width: 10, height: 100}, ball: &Ball{x: 10, y: 10, vx: 10, vy: 10, radius: 10}, scoreA: 0, scoreB: 0}
+		game := &Game{
+			clientA:        pair.First.(*Client),
+			clientB:        pair.Second.(*Client),
+			ladder:         l,
+			PlayerA:        &Paddle{X: 37.5, Y: 325, Width: 25, Height: 100},
+			PlayerB:        &Paddle{X: 962.5, Y: 325, Width: 25, Height: 100},
+			Ball:           &Ball{X: 500, Y: 375, VX: 10, VY: 0, Radius: 10},
+			ScoreA:         0,
+			ScoreB:         0,
+			lastUpdateTime: time.Time{},
+		}
 		pair.First.(*Client).game = game
 		pair.Second.(*Client).game = game
 		l.games[game] = true
+		go game.run()
 	}
 }
 
@@ -117,4 +123,9 @@ func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	go client.writePump()
 	go client.readPump()
+}
+
+func (l *Ladder) RemoveGame(g *Game) {
+	// implement the method
+	delete(l.games, g)
 }

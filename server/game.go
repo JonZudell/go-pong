@@ -1,93 +1,147 @@
 package server
 
 import (
+	"encoding/json"
+	"log"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type Ball struct {
-	x      float64
-	y      float64
-	vx     float64
-	vy     float64
-	radius float64
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	VX     float64 `json:"vx"`
+	VY     float64 `json:"vy"`
+	Radius float64 `json:"radius"`
 }
-
 type Paddle struct {
-	x      float64
-	y      float64
-	vx     float64
-	vy     float64
-	width  float64
-	height float64
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	VX     float64 `json:"vx"`
+	VY     float64 `json:"vy"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
 }
 
 type Game struct {
 	clientA        *Client
 	clientB        *Client
-	playerA        *Paddle
-	playerB        *Paddle
-	ball           *Ball
-	scoreA         int
-	scoreB         int
+	ladder         *Ladder
+	PlayerA        *Paddle
+	PlayerB        *Paddle
+	Ball           *Ball
+	ScoreA         int
+	ScoreB         int
 	lastUpdateTime time.Time
+	Started        bool
 }
 
 func (g *Game) update() {
 	// Compute deltaTime
+	if !g.Started {
+		g.lastUpdateTime = time.Now()
+		g.Started = true
+	}
 	currentTime := time.Now()
+
 	deltaTime := currentTime.Sub(g.lastUpdateTime).Seconds()
-	g.lastUpdateTime = currentTime
-	// Update paddle positions
-	g.playerA.y += g.playerA.vy * deltaTime
-	g.playerB.y += g.playerB.vy * deltaTime
-	// Update ball position
-	// AABB intersection test for paddles
-	if g.ball.x-g.ball.radius <= g.playerA.x+g.playerA.width &&
-		g.ball.x+g.ball.radius >= g.playerA.x &&
-		g.ball.y-g.ball.radius <= g.playerA.y+g.playerA.height &&
-		g.ball.y+g.ball.radius >= g.playerA.y {
-		// Collision with player A paddle
-		g.ball.vx = -g.ball.vx
-		g.ball.x = g.playerA.x + g.playerA.width + g.ball.radius
+	if deltaTime > float64(time.Second)/128 {
+		deltaTime = float64(time.Second) / 128
 	}
 
-	if g.ball.x-g.ball.radius <= g.playerB.x+g.playerB.width &&
-		g.ball.x+g.ball.radius >= g.playerB.x &&
-		g.ball.y-g.ball.radius <= g.playerB.y+g.playerB.height &&
-		g.ball.y+g.ball.radius >= g.playerB.y {
+	g.Ball.X += g.Ball.VX * deltaTime
+	g.Ball.Y += g.Ball.VY * deltaTime
+	g.PlayerA.Y += g.PlayerA.VY * deltaTime
+	g.PlayerB.Y += g.PlayerB.VY * deltaTime
+	// Update ball position
+	// AABB intersection test for paddles
+	if g.Ball.X-g.Ball.Radius <= g.PlayerA.X+g.PlayerA.Width &&
+		g.Ball.X+g.Ball.Radius >= g.PlayerA.X &&
+		g.Ball.Y-g.Ball.Radius <= g.PlayerA.Y+g.PlayerA.Height &&
+		g.Ball.Y+g.Ball.Radius >= g.PlayerA.Y {
+		// Collision with player A paddle
+		g.Ball.VX = -g.Ball.VX
+		g.Ball.X = g.PlayerA.X + g.PlayerA.Width + g.Ball.Radius
+	}
+
+	if g.Ball.X-g.Ball.Radius <= g.PlayerB.X+g.PlayerB.Width &&
+		g.Ball.X+g.Ball.Radius >= g.PlayerB.X &&
+		g.Ball.Y-g.Ball.Radius <= g.PlayerB.Y+g.PlayerB.Height &&
+		g.Ball.Y+g.Ball.Radius >= g.PlayerB.Y {
 		// Collision with player B paddle
-		g.ball.vx = -g.ball.vx
-		g.ball.x = g.playerB.x + g.playerB.width - g.ball.radius
+		g.Ball.VX = -g.Ball.VX
+		g.Ball.X = g.PlayerB.X + g.PlayerB.Width - g.Ball.Radius
 	}
 	// AABB intersection test for ball
-	if g.ball.x-g.ball.radius <= 0 ||
-		g.ball.x+g.ball.radius >= 1000 {
+	if g.Ball.X-g.Ball.Radius <= 0 ||
+		g.Ball.X+g.Ball.Radius >= 1000 {
 		// Collision with left or right wall
 		// Handle collision logic here
-		if g.ball.x-g.ball.radius <= 0 {
+		if g.Ball.X-g.Ball.Radius <= 0 {
 			// Collision with left wall
 			// Increment player B's score
-			g.scoreB++
-		} else if g.ball.x+g.ball.radius >= 1000 {
+			g.ScoreB++
+			g.Ball.X = 500
+			g.Ball.Y = 375
+		} else if g.Ball.X+g.Ball.Radius >= 1000 {
 			// Collision with right wall
 			// Increment player A's score
-			g.scoreA++
+			g.ScoreA++
+			g.Ball.X = 500
+			g.Ball.Y = 375
 		}
 	}
 
-	if g.ball.y-g.ball.radius <= 0 ||
-		g.ball.y+g.ball.radius >= 750 {
+	if g.Ball.Y-g.Ball.Radius <= 0 ||
+		g.Ball.Y+g.Ball.Radius >= 750 {
 		// Collision with top or bottom wall
 		// Handle collision logic here
 		// Collision with top wall
-		if g.ball.y+g.ball.radius >= 750 {
-			g.ball.vy = -g.ball.vy
-			g.ball.y = g.ball.radius
+		if g.Ball.Y+g.Ball.Radius >= 750 {
+			g.Ball.VY = -g.Ball.VY
+			g.Ball.Y = g.Ball.Radius
 		}
 		// Collision with bottom wall
-		if g.ball.y-g.ball.radius <= 0 {
-			g.ball.vy = -g.ball.vy
-			g.ball.y = 750 - g.ball.radius
+		if g.Ball.Y-g.Ball.Radius <= 0 {
+			g.Ball.VY = -g.Ball.VY
+			g.Ball.Y = 750 - g.Ball.Radius
 		}
+	}
+	// Encode game as JSON
+	gameJSON, err := json.Marshal(g)
+	if err != nil {
+		log.Printf("Error encoding game state: %v", err)
+	}
+
+	// Send game JSON to client A
+	err = g.clientA.conn.WriteMessage(websocket.TextMessage, gameJSON)
+	if err != nil {
+		log.Printf("Error sending game state to client A: %v", err)
+		panic(g.clientA)
+	}
+
+	// Send game JSON to client B
+	err = g.clientB.conn.WriteMessage(websocket.TextMessage, gameJSON)
+	if err != nil {
+		log.Printf("Error sending game state to client B: %v", err)
+		panic(g.clientB.conn)
+	}
+	g.lastUpdateTime = time.Now()
+}
+func (g *Game) run() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Recovered from panic:", r)
+			if conn, ok := r.(*websocket.Conn); ok {
+				conn.Close()
+			}
+			g.ladder.RemoveGame(g)
+		}
+	}()
+
+	// Your update logic here
+	for range time.Tick(time.Second / 128) {
+		g.update()
 	}
 }

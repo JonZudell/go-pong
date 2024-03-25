@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"time"
 
@@ -36,7 +37,6 @@ type Client struct {
 func (c *Client) readPump() {
 	defer func() {
 		c.ladder.unregister <- c
-		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
@@ -50,6 +50,13 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		var data map[string]interface{}
+		if err := json.Unmarshal(message, &data); err != nil {
+			log.Printf("error parsing message: %v", err)
+			continue
+		}
+
+		// Access the parsed data using data["key"]
 	}
 }
 
@@ -57,7 +64,6 @@ func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
 	}()
 	for {
 		select {

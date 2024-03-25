@@ -1,53 +1,63 @@
 <!DOCTYPE html>
+
+
 <html lang="en">
   <head>
     <title>Chat Example</title>
     <script type="text/javascript">
       window.onload = function () {
         var conn;
-        var msg = document.getElementById("msg");
-        var log = document.getElementById("log");
-
-        function appendLog(item) {
-          var doScroll =
-            log.scrollTop > log.scrollHeight - log.clientHeight - 1;
-          log.appendChild(item);
-          if (doScroll) {
-            log.scrollTop = log.scrollHeight - log.clientHeight;
+        var canvas = document.createElement("canvas");
+        canvas.width = 1000;
+        canvas.height = 750;
+        document.body.appendChild(canvas);
+        document.addEventListener("keydown", function(event) {
+          if (event.key === "w") {
+            if (conn) {
+              conn.send("W key is held down");
+            }
           }
-        }
+        });
 
-        document.getElementById("form").onsubmit = function () {
-          if (!conn) {
-            return false;
+        document.addEventListener("keyup", function(event) {
+          if (event.key === "w") {
+            if (conn) {
+              conn.send("W key is released");
+            }
           }
-          if (!msg.value) {
-            return false;
+        });
+        document.addEventListener("keydown", function(event) {
+          if (event.key === "s") {
+            if (conn) {
+              conn.send("S key is held down");
+            }
           }
-          conn.send(msg.value);
-          msg.value = "";
-          return false;
-        };
+        });
 
+        document.addEventListener("keyup", function(event) {
+          if (event.key === "s") {
+            if (conn) {
+              conn.send("S key is released");
+            }
+          }
+        });
         if (window["WebSocket"]) {
           conn = new WebSocket("ws://" + document.location.host + "/upgrade");
           conn.onclose = function (evt) {
-            var item = document.createElement("div");
-            item.innerHTML = "<b>Connection closed.</b>";
-            appendLog(item);
+            setState("closed");
           };
           conn.onmessage = function (evt) {
             var messages = evt.data.split("\n");
             for (var i = 0; i < messages.length; i++) {
               var item = document.createElement("div");
               item.innerText = messages[i];
-              appendLog(item);
+              setState(messages[i]);
             }
           };
         } else {
           var item = document.createElement("div");
           item.innerHTML = "<b>Your browser does not support WebSockets.</b>";
-          appendLog(item);
+          setState(item);
         }
       };
     </script>
@@ -89,10 +99,5 @@
     </style>
   </head>
   <body>
-    <div id="log"></div>
-    <form id="form">
-      <input type="submit" value="Send" />
-      <input type="text" id="msg" size="64" autofocus />
-    </form>
   </body>
 </html>
