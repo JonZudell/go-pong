@@ -11,6 +11,61 @@
         canvas.width = 1000;
         canvas.height = 750;
         document.body.appendChild(canvas);
+        var ctx = canvas.getContext("2d");
+
+        // Paddle 1
+        var paddle1 = {
+          x: 37.5,
+          y: canvas.height / 2 - 50,
+          vx: 0,
+          vy: 0,
+          width: 25,
+          height: 100,
+          color: "white",
+        };
+
+        // Paddle 2
+        var paddle2 = {
+          x: 962.5,
+          y: canvas.height / 2 - 50,
+          vx: 0,
+          vy: 0,
+          width: 25,
+          height: 100,
+          color: "white",
+        };
+
+        // Ball
+        var ball = {
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          radius: 10,
+          vx: 0,
+          vy: 0,
+          color: "white",
+        };
+
+        function drawPaddle(paddle) {
+          ctx.fillStyle = paddle.color;
+          ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+
+        function drawBall() {
+          ctx.beginPath();
+          ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+          ctx.fillStyle = ball.color;
+          ctx.fill();
+          ctx.closePath();
+        }
+
+        function draw() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          drawPaddle(paddle1);
+          drawPaddle(paddle2);
+          drawBall();
+        }
+
+        setInterval(draw, 10);
         document.addEventListener("keydown", function(event) {
           if (event.key === "w") {
             if (conn) {
@@ -44,14 +99,16 @@
         if (window["WebSocket"]) {
           conn = new WebSocket("ws://" + document.location.host + "/upgrade");
           conn.onclose = function (evt) {
-            setState("closed");
           };
           conn.onmessage = function (evt) {
             var messages = evt.data.split("\n");
             for (var i = 0; i < messages.length; i++) {
               var item = document.createElement("div");
               item.innerText = messages[i];
-              setState(messages[i]);
+              var message = JSON.parse(messages[i]);
+              console.log(message);
+              ball.x = message.Ball.x
+              ball.y = message.Ball.y
             }
           };
         } else {

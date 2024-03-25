@@ -46,8 +46,8 @@ func (g *Game) update() {
 	currentTime := time.Now()
 
 	deltaTime := currentTime.Sub(g.lastUpdateTime).Seconds()
-	if deltaTime > float64(time.Second)/128 {
-		deltaTime = float64(time.Second) / 128
+	if deltaTime > float64(time.Second)/64 {
+		deltaTime = float64(time.Second) / 64
 	}
 
 	g.Ball.X += g.Ball.VX * deltaTime
@@ -62,7 +62,7 @@ func (g *Game) update() {
 		g.Ball.Y+g.Ball.Radius >= g.PlayerA.Y {
 		// Collision with player A paddle
 		g.Ball.VX = -g.Ball.VX
-		g.Ball.X = g.PlayerA.X + g.PlayerA.Width + g.Ball.Radius
+		g.Ball.X = g.PlayerA.X + g.PlayerA.Width + (g.Ball.Radius + 1)
 	}
 
 	if g.Ball.X-g.Ball.Radius <= g.PlayerB.X+g.PlayerB.Width &&
@@ -71,7 +71,7 @@ func (g *Game) update() {
 		g.Ball.Y+g.Ball.Radius >= g.PlayerB.Y {
 		// Collision with player B paddle
 		g.Ball.VX = -g.Ball.VX
-		g.Ball.X = g.PlayerB.X + g.PlayerB.Width - g.Ball.Radius
+		g.Ball.X = g.PlayerB.X - (g.Ball.Radius + 1)
 	}
 	// AABB intersection test for ball
 	if g.Ball.X-g.Ball.Radius <= 0 ||
@@ -118,30 +118,29 @@ func (g *Game) update() {
 	err = g.clientA.conn.WriteMessage(websocket.TextMessage, gameJSON)
 	if err != nil {
 		log.Printf("Error sending game state to client A: %v", err)
-		panic(g.clientA)
+		g.ladder.unregister <- g.clientA
+		panic("Couldn't talk to clientA")
 	}
 
 	// Send game JSON to client B
 	err = g.clientB.conn.WriteMessage(websocket.TextMessage, gameJSON)
 	if err != nil {
 		log.Printf("Error sending game state to client B: %v", err)
-		panic(g.clientB.conn)
+		g.ladder.unregister <- g.clientB
+		panic("Couldn't talk to clientB")
 	}
 	g.lastUpdateTime = time.Now()
 }
 func (g *Game) run() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("Recovered from panic:", r)
-			if conn, ok := r.(*websocket.Conn); ok {
-				conn.Close()
-			}
+			log.Println("Killing game in a Panic", r)
 			g.ladder.RemoveGame(g)
 		}
 	}()
 
 	// Your update logic here
-	for range time.Tick(time.Second / 128) {
+	for range time.Tick(time.Second / 64) {
 		g.update()
 	}
 }

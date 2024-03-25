@@ -43,7 +43,7 @@ func (l *Ladder) unregisterClients(client *Client) {
 	}
 }
 func (l *Ladder) run() {
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(time.Second / 128)
 
 	for {
 		select {
@@ -84,7 +84,7 @@ func (l *Ladder) ladderTick() {
 			ladder:         l,
 			PlayerA:        &Paddle{X: 37.5, Y: 325, Width: 25, Height: 100},
 			PlayerB:        &Paddle{X: 962.5, Y: 325, Width: 25, Height: 100},
-			Ball:           &Ball{X: 500, Y: 375, VX: 10, VY: 0, Radius: 10},
+			Ball:           &Ball{X: 500, Y: 375, VX: 100, VY: 0, Radius: 10},
 			ScoreA:         0,
 			ScoreB:         0,
 			lastUpdateTime: time.Time{},

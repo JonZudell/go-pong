@@ -63,7 +63,22 @@ func TestMultipleConnections(t *testing.T) {
 
 	require.NoError(t, wsErr3)
 	require.Equal(t, 3, len(ladder.clients))
-	time.Sleep(time.Second)
+	time.Sleep(time.Second / 4)
 	require.Equal(t, 1, len(ladder.games))
+	ws3.Close()
+	time.Sleep(time.Second / 4)
+	require.Equal(t, 2, len(ladder.clients))
+	// Connect to the server with another websocket connection
+	ws4, _, wsErr4 := websocket.DefaultDialer.Dial(u, nil)
+	if wsErr4 != nil {
+		t.Fatalf("ws4: %v", wsErr4)
+	}
+	defer ws4.Close()
 
+	require.NoError(t, wsErr4)
+	time.Sleep(time.Second / 4)
+	require.Equal(t, 3, len(ladder.clients))
+	ws2.Close()
+	time.Sleep(time.Second / 4)
+	require.Equal(t, 2, len(ladder.clients))
 }
