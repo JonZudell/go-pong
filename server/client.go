@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -11,7 +12,7 @@ import (
 
 const (
 	writeWait      = 10 * time.Second
-	pongWait       = 60 * time.Second
+	pongWait       = 10 * time.Second
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 512
 )
@@ -30,8 +31,10 @@ type Client struct {
 	ladder *Ladder
 	game   *Game
 	// The websocket connection.
-	conn *websocket.Conn
-	send chan []byte
+	conn       *websocket.Conn
+	send       chan []byte
+	writeMutex sync.Mutex
+	readMutex  sync.Mutex
 }
 
 func (c *Client) readPump() {
@@ -42,6 +45,7 @@ func (c *Client) readPump() {
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
+		c.readMutex.Lock()
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -50,24 +54,29 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		var data map[string]interface{}
-		if err := json.Unmarshal(message, &data); err != nil {
-			log.Printf("error parsing message: %v", err)
-			continue
+		if !bytes.Equal(message, []byte{49, 48}) {
+			var data map[string]interface{}
+			if err := json.Unmarshal(message, &data); err != nil {
+				log.Printf("error parsing message: %v", err)
+				continue
+			}
+		} else {
+			c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 		}
-
-		// Access the parsed data using data["key"]
+		c.readMutex.Unlock()
 	}
 }
 
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
+
 	defer func() {
 		ticker.Stop()
 	}()
 	for {
 		select {
 		case message, ok := <-c.send:
+			c.writeMutex.Lock()
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
@@ -91,11 +100,14 @@ func (c *Client) writePump() {
 			if err := w.Close(); err != nil {
 				return
 			}
+			c.writeMutex.Unlock()
 		case <-ticker.C:
+			c.writeMutex.Lock()
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
+			c.writeMutex.Unlock()
 		}
 	}
 }

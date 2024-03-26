@@ -37,6 +37,12 @@ type Game struct {
 	Started        bool
 }
 
+// Encode game as JSON
+type GameStateMessage struct {
+	Type string `json:"type"`
+	Game *Game  `json:"game"`
+}
+
 func (g *Game) update() {
 	// Compute deltaTime
 	if !g.Started {
@@ -108,8 +114,7 @@ func (g *Game) update() {
 			g.Ball.Y = 750 - g.Ball.Radius
 		}
 	}
-	// Encode game as JSON
-	gameJSON, err := json.Marshal(g)
+	gameJSON, err := json.Marshal(GameStateMessage{Type: "gamestate", Game: g})
 	if err != nil {
 		log.Printf("Error encoding game state: %v", err)
 	}

@@ -106,11 +106,30 @@
               var item = document.createElement("div");
               item.innerText = messages[i];
               var message = JSON.parse(messages[i]);
-              console.log(message);
-              ball.x = message.Ball.x
-              ball.y = message.Ball.y
+              if (message["type"] == "gamestate") {
+                console.log(message);
+                ball.x = message.game.Ball.x;
+                ball.y = message.game.Ball.y;
+              }
             }
           };
+
+          conn.onping = function (evt) {
+            // Handle WebSocket ping
+            console.log("Received ping from server");
+            conn.pong();
+          };
+
+          conn.onpong = function (evt) {
+            // Handle WebSocket pong
+            console.log("Received pong from server");
+          };
+
+          setInterval(function() {
+            if (conn) {
+              conn.send(10)
+            }
+          }, 10000);
         } else {
           var item = document.createElement("div");
           item.innerHTML = "<b>Your browser does not support WebSockets.</b>";

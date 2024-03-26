@@ -72,10 +72,6 @@ func (l *Ladder) ladderTick() {
 			unpairedClients = append(unpairedClients, client)
 		}
 	}
-
-	log.Println("Games:", len(l.games))
-	log.Println("Clients in Game:", len(clientsInGame))
-	log.Println("Clients not in game:", len(unpairedClients))
 	paired := PairList(unpairedClients)
 	for _, pair := range paired {
 		game := &Game{
@@ -115,7 +111,7 @@ func (l *Ladder) Shutdown(ctx context.Context) {
 func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		log.Println("Failed to upgrade websocket:", err)
 		return
 	}
 	client := &Client{ladder: l, conn: conn, send: make(chan []byte, 256)}
