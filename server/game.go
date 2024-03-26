@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"time"
 )
 
@@ -28,11 +29,14 @@ type Game struct {
 	ladder         *Ladder
 	PlayerA        *Paddle
 	PlayerB        *Paddle
+	PlayerAHasBall bool
+	PlayerBHasBall bool
 	Ball           *Ball
 	ScoreA         int
 	ScoreB         int
 	lastUpdateTime time.Time
 	Started        bool
+	Paused         bool
 }
 
 // Encode game as JSON
@@ -47,18 +51,48 @@ func (g *Game) checkCollision() {
 		g.Ball.X+g.Ball.Radius >= g.PlayerA.X &&
 		g.Ball.Y-g.Ball.Radius <= g.PlayerA.Y+g.PlayerA.Height &&
 		g.Ball.Y+g.Ball.Radius >= g.PlayerA.Y {
-		// Collision with player A paddle
-		g.Ball.VX = -g.Ball.VX
-		g.Ball.X = g.PlayerA.X + g.PlayerA.Width + (g.Ball.Radius + 1)
+		// Determine which edge was intersected
+		if g.Ball.Y+g.Ball.Radius >= g.PlayerA.Y+g.PlayerA.Height {
+			g.Ball.VY, g.PlayerA.VY = g.PlayerA.VY, g.Ball.VY
+			g.Ball.Y = g.PlayerA.Y + g.PlayerA.Height + g.Ball.Radius + 1
+		} else if g.Ball.Y-g.Ball.Radius <= g.PlayerA.Y {
+			g.Ball.VY, g.PlayerA.VY = g.PlayerA.VY, g.Ball.VY
+			g.Ball.Y = g.PlayerA.Y - g.Ball.Radius - 1
+		} else if g.Ball.X+g.Ball.Radius >= g.PlayerA.X+g.PlayerA.Width {
+			g.Ball.VX = -g.Ball.VX
+			g.Ball.X = g.PlayerA.X + g.PlayerA.Width + g.Ball.Radius + 1
+		} else if g.Ball.X-g.Ball.Radius <= g.PlayerA.X {
+			g.Ball.VX = -g.Ball.VX
+			g.Ball.X = g.PlayerA.X - g.Ball.Radius - 1
+		}
 	}
 
 	if g.Ball.X-g.Ball.Radius <= g.PlayerB.X+g.PlayerB.Width &&
 		g.Ball.X+g.Ball.Radius >= g.PlayerB.X &&
 		g.Ball.Y-g.Ball.Radius <= g.PlayerB.Y+g.PlayerB.Height &&
 		g.Ball.Y+g.Ball.Radius >= g.PlayerB.Y {
-		// Collision with player B paddle
-		g.Ball.VX = -g.Ball.VX
-		g.Ball.X = g.PlayerB.X - (g.Ball.Radius + 1)
+		if g.Ball.Y+g.Ball.Radius >= g.PlayerB.Y+g.PlayerB.Height {
+			g.Ball.VY, g.PlayerB.VY = g.PlayerB.VY, g.Ball.VY
+			g.Ball.Y = g.PlayerB.Y + g.PlayerB.Height + g.Ball.Radius + 1
+		} else if g.Ball.Y-g.Ball.Radius <= g.PlayerB.Y {
+			g.Ball.VY, g.PlayerB.VY = g.PlayerB.VY, g.Ball.VY
+			g.Ball.Y = g.PlayerB.Y - g.Ball.Radius - 1
+		} else if g.Ball.X+g.Ball.Radius >= g.PlayerB.X+g.PlayerB.Width {
+			g.Ball.VX = -g.Ball.VX
+			g.Ball.X = g.PlayerB.X + g.PlayerB.Width + g.Ball.Radius + 1
+		} else if g.Ball.X-g.Ball.Radius <= g.PlayerB.X {
+			g.Ball.VX = -g.Ball.VX
+			g.Ball.X = g.PlayerB.X - g.Ball.Radius - 1
+		}
+	}
+	if g.Ball.Y-g.Ball.Radius <= 0 {
+		// Collision with top or bottom wall
+		// Reverse the vertical velocity of the ball
+		g.Ball.VY = math.Abs(g.Ball.VY)
+	}
+	if g.Ball.Y+g.Ball.Radius >= 750 {
+		g.Ball.VY = -math.Abs(g.Ball.VY)
+
 	}
 	// AABB intersection test for ball
 	if g.Ball.X-g.Ball.Radius <= 0 ||
@@ -69,30 +103,16 @@ func (g *Game) checkCollision() {
 			// Collision with left wall
 			// Increment player B's score
 			g.ScoreB++
+			g.Ball.VX = -g.Ball.VX
 			g.Ball.X = 500
 			g.Ball.Y = 375
 		} else if g.Ball.X+g.Ball.Radius >= 1000 {
 			// Collision with right wall
 			// Increment player A's score
 			g.ScoreA++
+			g.Ball.VX = -g.Ball.VX
 			g.Ball.X = 500
 			g.Ball.Y = 375
-		}
-	}
-
-	if g.Ball.Y-g.Ball.Radius <= 0 ||
-		g.Ball.Y+g.Ball.Radius >= 750 {
-		// Collision with top or bottom wall
-		// Handle collision logic here
-		// Collision with top wall
-		if g.Ball.Y+g.Ball.Radius >= 750 {
-			g.Ball.VY = -g.Ball.VY
-			g.Ball.Y = g.Ball.Radius
-		}
-		// Collision with bottom wall
-		if g.Ball.Y-g.Ball.Radius <= 0 {
-			g.Ball.VY = -g.Ball.VY
-			g.Ball.Y = 750 - g.Ball.Radius
 		}
 	}
 }
@@ -162,12 +182,13 @@ func (g *Game) update() {
 	if deltaTime > float64(time.Second)/64 {
 		deltaTime = float64(time.Second) / 64
 	}
-	g.Ball.X += g.Ball.VX * deltaTime
-	g.Ball.Y += g.Ball.VY * deltaTime
-	g.handleInput(deltaTime)
-	// Update ball position
-	// AABB intersection test for paddles
-	g.checkCollision()
+	if !g.Paused {
+		g.Ball.X += g.Ball.VX * deltaTime
+		g.Ball.Y += g.Ball.VY * deltaTime
+		g.handleInput(deltaTime)
+		g.checkCollision()
+	}
+
 	gameJSON, err := json.Marshal(GameStateMessage{Type: "gamestate", Game: g})
 	if err != nil {
 		log.Printf("Error encoding game state: %v", err)
