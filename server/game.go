@@ -7,18 +7,25 @@ import (
 	"time"
 )
 
+type Position struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type Velocity struct {
+	VX float64 `json:"vx"`
+	VY float64 `json:"vy"`
+}
+
 type Ball struct {
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	VX     float64 `json:"vx"`
-	VY     float64 `json:"vy"`
+	Position
+	Velocity
 	Radius float64 `json:"radius"`
 }
+
 type Paddle struct {
-	X      float64 `json:"x"`
-	Y      float64 `json:"y"`
-	VX     float64 `json:"vx"`
-	VY     float64 `json:"vy"`
+	Position
+	Velocity
 	Width  float64 `json:"width"`
 	Height float64 `json:"height"`
 }
@@ -32,8 +39,8 @@ type Game struct {
 	PlayerAHasBall bool
 	PlayerBHasBall bool
 	Ball           *Ball
-	ScoreA         int
-	ScoreB         int
+	ScoreA         int `json:"scoreA"`
+	ScoreB         int `json:"scoreB"`
 	lastUpdateTime time.Time
 	Started        bool
 	Paused         bool
@@ -46,75 +53,75 @@ type GameStateMessage struct {
 }
 
 func (g *Game) checkCollision() {
-	// AABB intersection test for paddles
-	if g.Ball.X-g.Ball.Radius <= g.PlayerA.X+g.PlayerA.Width &&
-		g.Ball.X+g.Ball.Radius >= g.PlayerA.X &&
-		g.Ball.Y-g.Ball.Radius <= g.PlayerA.Y+g.PlayerA.Height &&
-		g.Ball.Y+g.Ball.Radius >= g.PlayerA.Y {
-		// Determine which edge was intersected
-		if g.Ball.Y+g.Ball.Radius >= g.PlayerA.Y+g.PlayerA.Height {
-			g.Ball.VY, g.PlayerA.VY = g.PlayerA.VY, g.Ball.VY
-			g.Ball.Y = g.PlayerA.Y + g.PlayerA.Height + g.Ball.Radius + 1
-		} else if g.Ball.Y-g.Ball.Radius <= g.PlayerA.Y {
-			g.Ball.VY, g.PlayerA.VY = g.PlayerA.VY, g.Ball.VY
-			g.Ball.Y = g.PlayerA.Y - g.Ball.Radius - 1
-		} else if g.Ball.X+g.Ball.Radius >= g.PlayerA.X+g.PlayerA.Width {
-			g.Ball.VX = -g.Ball.VX
-			g.Ball.X = g.PlayerA.X + g.PlayerA.Width + g.Ball.Radius + 1
-		} else if g.Ball.X-g.Ball.Radius <= g.PlayerA.X {
-			g.Ball.VX = -g.Ball.VX
-			g.Ball.X = g.PlayerA.X - g.Ball.Radius - 1
-		}
-	}
+	g.checkPaddleCollision(g.PlayerA)
+	g.checkPaddleCollision(g.PlayerB)
+	g.checkWallCollision()
+}
 
-	if g.Ball.X-g.Ball.Radius <= g.PlayerB.X+g.PlayerB.Width &&
-		g.Ball.X+g.Ball.Radius >= g.PlayerB.X &&
-		g.Ball.Y-g.Ball.Radius <= g.PlayerB.Y+g.PlayerB.Height &&
-		g.Ball.Y+g.Ball.Radius >= g.PlayerB.Y {
-		if g.Ball.Y+g.Ball.Radius >= g.PlayerB.Y+g.PlayerB.Height {
-			g.Ball.VY, g.PlayerB.VY = g.PlayerB.VY, g.Ball.VY
-			g.Ball.Y = g.PlayerB.Y + g.PlayerB.Height + g.Ball.Radius + 1
-		} else if g.Ball.Y-g.Ball.Radius <= g.PlayerB.Y {
-			g.Ball.VY, g.PlayerB.VY = g.PlayerB.VY, g.Ball.VY
-			g.Ball.Y = g.PlayerB.Y - g.Ball.Radius - 1
-		} else if g.Ball.X+g.Ball.Radius >= g.PlayerB.X+g.PlayerB.Width {
-			g.Ball.VX = -g.Ball.VX
-			g.Ball.X = g.PlayerB.X + g.PlayerB.Width + g.Ball.Radius + 1
-		} else if g.Ball.X-g.Ball.Radius <= g.PlayerB.X {
-			g.Ball.VX = -g.Ball.VX
-			g.Ball.X = g.PlayerB.X - g.Ball.Radius - 1
-		}
+func (g *Game) checkPaddleCollision(paddle *Paddle) {
+	if g.isBallCollidingWithPaddle(paddle) {
+		g.resolvePaddleCollision(paddle)
 	}
+}
+
+func (g *Game) isBallCollidingWithPaddle(paddle *Paddle) bool {
+	return g.Ball.X-g.Ball.Radius <= paddle.X+paddle.Width &&
+		g.Ball.X+g.Ball.Radius >= paddle.X &&
+		g.Ball.Y-g.Ball.Radius <= paddle.Y+paddle.Height &&
+		g.Ball.Y+g.Ball.Radius >= paddle.Y
+}
+
+func (g *Game) resolvePaddleCollision(paddle *Paddle) {
+	// Determine which edge was intersected
+	if g.Ball.Y+g.Ball.Radius >= paddle.Y+paddle.Height {
+		g.Ball.VY, paddle.VY = paddle.VY, g.Ball.VY
+		g.Ball.Y = paddle.Y + paddle.Height + g.Ball.Radius + 1
+	} else if g.Ball.Y-g.Ball.Radius <= paddle.Y {
+		g.Ball.VY, paddle.VY = paddle.VY, g.Ball.VY
+		g.Ball.Y = paddle.Y - g.Ball.Radius - 1
+	} else if g.Ball.X+g.Ball.Radius >= paddle.X+paddle.Width {
+		g.Ball.VX = -g.Ball.VX
+		g.Ball.X = paddle.X + paddle.Width + g.Ball.Radius + 1
+	} else if g.Ball.X-g.Ball.Radius <= paddle.X {
+		g.Ball.VX = -g.Ball.VX
+		g.Ball.X = paddle.X - g.Ball.Radius - 1
+	}
+}
+
+func (g *Game) checkWallCollision() {
+	if g.isBallCollidingWithTopOrBottomWall() {
+		g.resolveTopOrBottomWallCollision()
+	}
+	if g.isBallCollidingWithLeftOrRightWall() {
+		g.resolveLeftOrRightWallCollision()
+	}
+}
+
+func (g *Game) isBallCollidingWithTopOrBottomWall() bool {
+	return g.Ball.Y-g.Ball.Radius <= 0 || g.Ball.Y+g.Ball.Radius >= 750
+}
+
+func (g *Game) resolveTopOrBottomWallCollision() {
 	if g.Ball.Y-g.Ball.Radius <= 0 {
-		// Collision with top or bottom wall
-		// Reverse the vertical velocity of the ball
 		g.Ball.VY = math.Abs(g.Ball.VY)
-	}
-	if g.Ball.Y+g.Ball.Radius >= 750 {
+	} else {
 		g.Ball.VY = -math.Abs(g.Ball.VY)
+	}
+}
 
+func (g *Game) isBallCollidingWithLeftOrRightWall() bool {
+	return g.Ball.X-g.Ball.Radius <= 0 || g.Ball.X+g.Ball.Radius >= 1000
+}
+
+func (g *Game) resolveLeftOrRightWallCollision() {
+	if g.Ball.X-g.Ball.Radius <= 0 {
+		g.ScoreB++
+	} else {
+		g.ScoreA++
 	}
-	// AABB intersection test for ball
-	if g.Ball.X-g.Ball.Radius <= 0 ||
-		g.Ball.X+g.Ball.Radius >= 1000 {
-		// Collision with left or right wall
-		// Handle collision logic here
-		if g.Ball.X-g.Ball.Radius <= 0 {
-			// Collision with left wall
-			// Increment player B's score
-			g.ScoreB++
-			g.Ball.VX = -g.Ball.VX
-			g.Ball.X = 500
-			g.Ball.Y = 375
-		} else if g.Ball.X+g.Ball.Radius >= 1000 {
-			// Collision with right wall
-			// Increment player A's score
-			g.ScoreA++
-			g.Ball.VX = -g.Ball.VX
-			g.Ball.X = 500
-			g.Ball.Y = 375
-		}
-	}
+	g.Ball.VX = -g.Ball.VX
+	g.Ball.X = 500
+	g.Ball.Y = 375
 }
 func (g *Game) handleInput(deltaTime float64) {
 	if g.clientA.up && g.clientA.down {
