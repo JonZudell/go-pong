@@ -73,18 +73,18 @@ func (g *Game) isBallCollidingWithPaddle(paddle *Paddle) bool {
 
 func (g *Game) resolvePaddleCollision(paddle *Paddle) {
 	// Determine which edge was intersected
-	if g.Ball.Y+g.Ball.Radius >= paddle.Y+paddle.Height {
-		g.Ball.VY, paddle.VY = paddle.VY, g.Ball.VY
-		g.Ball.Y = paddle.Y + paddle.Height + g.Ball.Radius + 1
-	} else if g.Ball.Y-g.Ball.Radius <= paddle.Y {
-		g.Ball.VY, paddle.VY = paddle.VY, g.Ball.VY
-		g.Ball.Y = paddle.Y - g.Ball.Radius - 1
-	} else if g.Ball.X+g.Ball.Radius >= paddle.X+paddle.Width {
+	if g.Ball.X+g.Ball.Radius >= paddle.X+paddle.Width {
 		g.Ball.VX = -g.Ball.VX
 		g.Ball.X = paddle.X + paddle.Width + g.Ball.Radius + 1
 	} else if g.Ball.X-g.Ball.Radius <= paddle.X {
 		g.Ball.VX = -g.Ball.VX
 		g.Ball.X = paddle.X - g.Ball.Radius - 1
+	} else if g.Ball.Y-g.Ball.Radius <= paddle.Y {
+		g.Ball.VY, paddle.VY = paddle.VY, g.Ball.VY
+		g.Ball.Y = paddle.Y - g.Ball.Radius - 1
+	} else if g.Ball.Y+g.Ball.Radius >= paddle.Y+paddle.Height {
+		g.Ball.VY, paddle.VY = paddle.VY, g.Ball.VY
+		g.Ball.Y = paddle.Y + paddle.Height + g.Ball.Radius + 1
 	}
 }
 
@@ -95,6 +95,39 @@ func (g *Game) checkWallCollision() {
 	if g.isBallCollidingWithLeftOrRightWall() {
 		g.resolveLeftOrRightWallCollision()
 	}
+	g.checkPaddleWallCollision()
+}
+func (g *Game) checkPaddleWallCollision() {
+	if g.isPaddleCollidingWithTopWall(g.PlayerA) {
+		g.resolveTopWallCollision(g.PlayerA)
+	}
+	if g.isPaddleCollidingWithBottomWall(g.PlayerA) {
+		g.resolveBottomWallCollision(g.PlayerA)
+	}
+	if g.isPaddleCollidingWithTopWall(g.PlayerB) {
+		g.resolveTopWallCollision(g.PlayerB)
+	}
+	if g.isPaddleCollidingWithBottomWall(g.PlayerB) {
+		g.resolveBottomWallCollision(g.PlayerB)
+	}
+}
+
+func (g *Game) isPaddleCollidingWithTopWall(paddle *Paddle) bool {
+	return paddle.Y <= 0
+}
+
+func (g *Game) isPaddleCollidingWithBottomWall(paddle *Paddle) bool {
+	return paddle.Y+paddle.Height >= 750
+}
+
+func (g *Game) resolveTopWallCollision(paddle *Paddle) {
+	paddle.Y = 1
+	paddle.VY = -paddle.VY
+}
+
+func (g *Game) resolveBottomWallCollision(paddle *Paddle) {
+	paddle.Y = 750 - paddle.Height - 1
+	paddle.VY = -paddle.VY
 }
 
 func (g *Game) isBallCollidingWithTopOrBottomWall() bool {
@@ -131,10 +164,10 @@ func (g *Game) handleInput(deltaTime float64) {
 		g.PlayerA.VY = g.PlayerA.VY + (10000 * deltaTime)
 	}
 
-	if g.PlayerA.VY > 100 {
-		g.PlayerA.VY = 100
-	} else if g.PlayerA.VY < -100 {
-		g.PlayerA.VY = -100
+	if g.PlayerA.VY > 400 {
+		g.PlayerA.VY = 400
+	} else if g.PlayerA.VY < -400 {
+		g.PlayerA.VY = -400
 	}
 	if g.clientB.up && g.clientB.down {
 
@@ -143,10 +176,10 @@ func (g *Game) handleInput(deltaTime float64) {
 	} else if g.clientB.down {
 		g.PlayerB.VY = g.PlayerB.VY + (10000 * deltaTime)
 	}
-	if g.PlayerB.VY > 100 {
-		g.PlayerB.VY = 100
-	} else if g.PlayerB.VY < -100 {
-		g.PlayerB.VY = -100
+	if g.PlayerB.VY > 400 {
+		g.PlayerB.VY = 400
+	} else if g.PlayerB.VY < -400 {
+		g.PlayerB.VY = -400
 	}
 	// Apply friction to player A's VY
 	if g.PlayerA.VY > 0 {
@@ -182,6 +215,8 @@ func (g *Game) update() {
 	if !g.Started {
 		g.lastUpdateTime = time.Now()
 		g.Started = true
+		g.clientA.send <- []byte(`{"type": "begin"}`)
+		g.clientB.send <- []byte(`{"type": "begin"}`)
 	}
 	currentTime := time.Now()
 
@@ -207,6 +242,7 @@ func (g *Game) update() {
 
 	g.lastUpdateTime = time.Now()
 }
+
 func (g *Game) run() {
 	defer func() {
 		if r := recover(); r != nil {
