@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -31,10 +30,10 @@ type Client struct {
 	ladder *Ladder
 	game   *Game
 	// The websocket connection.
-	conn       *websocket.Conn
-	send       chan []byte
-	writeMutex sync.Mutex
-	readMutex  sync.Mutex
+	conn *websocket.Conn
+	send chan []byte
+	up   bool
+	down bool
 }
 
 func (c *Client) readPump() {
@@ -45,7 +44,6 @@ func (c *Client) readPump() {
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
-		c.readMutex.Lock()
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -60,23 +58,28 @@ func (c *Client) readPump() {
 				log.Printf("error parsing message: %v", err)
 				continue
 			}
+			if data["type"] == "input" {
+				if data["input"] == "down" {
+					c.down = data["status"] == "down"
+				}
+				if data["input"] == "up" {
+					c.up = data["status"] == "down"
+				}
+			}
 		} else {
 			c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 		}
-		c.readMutex.Unlock()
 	}
 }
 
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
-
 	defer func() {
 		ticker.Stop()
 	}()
 	for {
 		select {
 		case message, ok := <-c.send:
-			c.writeMutex.Lock()
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
 				// The hub closed the channel.
@@ -100,14 +103,11 @@ func (c *Client) writePump() {
 			if err := w.Close(); err != nil {
 				return
 			}
-			c.writeMutex.Unlock()
 		case <-ticker.C:
-			c.writeMutex.Lock()
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
-			c.writeMutex.Unlock()
 		}
 	}
 }

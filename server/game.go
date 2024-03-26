@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 type Ball struct {
@@ -43,24 +41,7 @@ type GameStateMessage struct {
 	Game *Game  `json:"game"`
 }
 
-func (g *Game) update() {
-	// Compute deltaTime
-	if !g.Started {
-		g.lastUpdateTime = time.Now()
-		g.Started = true
-	}
-	currentTime := time.Now()
-
-	deltaTime := currentTime.Sub(g.lastUpdateTime).Seconds()
-	if deltaTime > float64(time.Second)/64 {
-		deltaTime = float64(time.Second) / 64
-	}
-
-	g.Ball.X += g.Ball.VX * deltaTime
-	g.Ball.Y += g.Ball.VY * deltaTime
-	g.PlayerA.Y += g.PlayerA.VY * deltaTime
-	g.PlayerB.Y += g.PlayerB.VY * deltaTime
-	// Update ball position
+func (g *Game) checkCollision() {
 	// AABB intersection test for paddles
 	if g.Ball.X-g.Ball.Radius <= g.PlayerA.X+g.PlayerA.Width &&
 		g.Ball.X+g.Ball.Radius >= g.PlayerA.X &&
@@ -114,26 +95,88 @@ func (g *Game) update() {
 			g.Ball.Y = 750 - g.Ball.Radius
 		}
 	}
+}
+func (g *Game) handleInput(deltaTime float64) {
+	if g.clientA.up && g.clientA.down {
+	} else if g.clientA.up {
+		g.PlayerA.VY = g.PlayerA.VY - (10000 * deltaTime)
+	} else if g.clientA.down {
+		g.PlayerA.VY = g.PlayerA.VY + (10000 * deltaTime)
+	}
+
+	if g.PlayerA.VY > 100 {
+		g.PlayerA.VY = 100
+	} else if g.PlayerA.VY < -100 {
+		g.PlayerA.VY = -100
+	}
+	if g.clientB.up && g.clientB.down {
+
+	} else if g.clientB.up {
+		g.PlayerB.VY = g.PlayerB.VY - (10000 * deltaTime)
+	} else if g.clientB.down {
+		g.PlayerB.VY = g.PlayerB.VY + (10000 * deltaTime)
+	}
+	if g.PlayerB.VY > 100 {
+		g.PlayerB.VY = 100
+	} else if g.PlayerB.VY < -100 {
+		g.PlayerB.VY = -100
+	}
+	// Apply friction to player A's VY
+	if g.PlayerA.VY > 0 {
+		g.PlayerA.VY -= 100 * deltaTime
+		if g.PlayerA.VY < 0 {
+			g.PlayerA.VY = 0
+		}
+	} else if g.PlayerA.VY < 0 {
+		g.PlayerA.VY += 100 * deltaTime
+		if g.PlayerA.VY > 0 {
+			g.PlayerA.VY = 0
+		}
+	}
+
+	g.PlayerA.Y += g.PlayerA.VY * deltaTime
+	g.PlayerB.Y += g.PlayerB.VY * deltaTime
+	// Apply friction to player B's VY
+	if g.PlayerB.VY > 0 {
+		g.PlayerB.VY -= 100 * deltaTime
+		if g.PlayerB.VY < 0 {
+			g.PlayerB.VY = 0
+		}
+	} else if g.PlayerB.VY < 0 {
+		g.PlayerB.VY += 100 * deltaTime
+		if g.PlayerB.VY > 0 {
+			g.PlayerB.VY = 0
+		}
+	}
+
+}
+func (g *Game) update() {
+	// Compute deltaTime
+	if !g.Started {
+		g.lastUpdateTime = time.Now()
+		g.Started = true
+	}
+	currentTime := time.Now()
+
+	deltaTime := currentTime.Sub(g.lastUpdateTime).Seconds()
+	if deltaTime > float64(time.Second)/64 {
+		deltaTime = float64(time.Second) / 64
+	}
+	g.Ball.X += g.Ball.VX * deltaTime
+	g.Ball.Y += g.Ball.VY * deltaTime
+	g.handleInput(deltaTime)
+	// Update ball position
+	// AABB intersection test for paddles
+	g.checkCollision()
 	gameJSON, err := json.Marshal(GameStateMessage{Type: "gamestate", Game: g})
 	if err != nil {
 		log.Printf("Error encoding game state: %v", err)
 	}
 
-	// Send game JSON to client A
-	err = g.clientA.conn.WriteMessage(websocket.TextMessage, gameJSON)
-	if err != nil {
-		log.Printf("Error sending game state to client A: %v", err)
-		g.ladder.unregister <- g.clientA
-		panic("Couldn't talk to clientA")
-	}
+	g.clientA.send <- gameJSON
 
-	// Send game JSON to client B
-	err = g.clientB.conn.WriteMessage(websocket.TextMessage, gameJSON)
-	if err != nil {
-		log.Printf("Error sending game state to client B: %v", err)
-		g.ladder.unregister <- g.clientB
-		panic("Couldn't talk to clientB")
-	}
+	g.clientB.send <- gameJSON
+
 	g.lastUpdateTime = time.Now()
 }
 func (g *Game) run() {

@@ -66,36 +66,31 @@
         }
 
         setInterval(draw, 10);
+        document.addEventListener("keyup", function(event) {
+          if (event.key === "w") {
+            if (conn) {
+              conn.send('{"type" : "input", "input" : "up", "status" : "released"}');
+            }
+          }          
+          if (event.key === "s") {
+            if (conn) {
+              conn.send('{"type" : "input", "input" : "down", "status" : "released"}');
+            }
+          }
+        });
         document.addEventListener("keydown", function(event) {
           if (event.key === "w") {
             if (conn) {
-              conn.send("W key is held down");
+              conn.send('{"type" : "input", "input" : "up", "status" : "down"}');
+            }
+          }
+          if (event.key === "s") {
+            if (conn) {
+              conn.send('{"type" : "input", "input" : "down", "status" : "down"}');
             }
           }
         });
 
-        document.addEventListener("keyup", function(event) {
-          if (event.key === "w") {
-            if (conn) {
-              conn.send("W key is released");
-            }
-          }
-        });
-        document.addEventListener("keydown", function(event) {
-          if (event.key === "s") {
-            if (conn) {
-              conn.send("S key is held down");
-            }
-          }
-        });
-
-        document.addEventListener("keyup", function(event) {
-          if (event.key === "s") {
-            if (conn) {
-              conn.send("S key is released");
-            }
-          }
-        });
         if (window["WebSocket"]) {
           conn = new WebSocket("ws://" + document.location.host + "/upgrade");
           conn.onclose = function (evt) {
@@ -110,6 +105,8 @@
                 console.log(message);
                 ball.x = message.game.Ball.x;
                 ball.y = message.game.Ball.y;
+                paddle1.y = message.game.PlayerA.y
+                paddle2.y = message.game.PlayerB.y
               }
             }
           };
