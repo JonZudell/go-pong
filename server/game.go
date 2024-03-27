@@ -214,7 +214,7 @@ func (g *Game) update() {
 	if !g.Started {
 		g.lastUpdateTime = time.Now()
 		g.Started = true
-		payload := []byte(`{"type": "begin", "clientA": "` + g.clientA.Name + `", "clientB": "` + g.clientB.Name + `"}`)
+		payload := []byte(`{"type": "begin", "playerAName": "` + g.clientA.Name + `", "playerBName": "` + g.clientB.Name + `"}`)
 		g.clientA.send <- payload
 		g.clientB.send <- payload
 	}
