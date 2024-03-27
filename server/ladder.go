@@ -68,7 +68,7 @@ func (l *Ladder) ladderTick() {
 		clientsInGame = append(clientsInGame, game.clientA, game.clientB)
 	}
 	for client := range l.clients {
-		if !contains(clientsInGame, client) {
+		if !contains(clientsInGame, client) && client.ready {
 			unpairedClients = append(unpairedClients, client)
 		}
 	}
@@ -80,10 +80,14 @@ func (l *Ladder) ladderTick() {
 			ladder:         l,
 			PlayerA:        &Paddle{Position: Position{X: 37.5, Y: 325}, Velocity: Velocity{VX: 0, VY: 0}, Width: 25, Height: 100},
 			PlayerB:        &Paddle{Position: Position{X: 962.5 - 25, Y: 325}, Velocity: Velocity{VX: 0, VY: 0}, Width: 25, Height: 100},
+			PlayerAHasBall: false,
+			PlayerBHasBall: false,
 			Ball:           &Ball{Position: Position{X: 500, Y: 375}, Velocity: Velocity{VX: 100, VY: 0}, Radius: 10},
 			ScoreA:         0,
 			ScoreB:         0,
 			lastUpdateTime: time.Time{},
+			Started:        false,
+			Paused:         false,
 		}
 		pair.First.(*Client).game = game
 		pair.Second.(*Client).game = game

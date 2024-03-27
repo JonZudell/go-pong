@@ -30,10 +30,11 @@ type Client struct {
 	ladder *Ladder
 	game   *Game
 	// The websocket connection.
-	conn *websocket.Conn
-	send chan []byte
-	up   bool
-	down bool
+	conn  *websocket.Conn
+	send  chan []byte
+	up    bool
+	down  bool
+	ready bool
 }
 
 func (c *Client) readPump() {
@@ -58,13 +59,18 @@ func (c *Client) readPump() {
 				log.Printf("error parsing message: %v", err)
 				continue
 			}
-			if data["type"] == "input" {
-				if data["input"] == "down" {
-					c.down = data["status"] == "down"
+			if c.ready && c.game != nil {
+				if data["type"] == "input" {
+					if data["input"] == "down" {
+						c.down = data["status"] == "down"
+					}
+					if data["input"] == "up" {
+						c.up = data["status"] == "down"
+					}
 				}
-				if data["input"] == "up" {
-					c.up = data["status"] == "down"
-				}
+			}
+			if data["type"] == "ready" {
+				c.ready = true
 			}
 		} else {
 			c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })

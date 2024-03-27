@@ -235,12 +235,31 @@ func (g *Game) update() {
 	if err != nil {
 		log.Printf("Error encoding game state: %v", err)
 	}
-
+	if g.ScoreA == 3 || g.ScoreB == 3 {
+		g.Paused = true
+		if g.ScoreA == 3 {
+			g.clientA.send <- []byte(`{"type": "win"}`)
+			g.clientB.send <- []byte(`{"type": "lose"}`)
+			g.closeGame()
+		} else {
+			g.clientA.send <- []byte(`{"type": "lose"}`)
+			g.clientB.send <- []byte(`{"type": "win"}`)
+			g.closeGame()
+		}
+	}
 	g.clientA.send <- gameJSON
 
 	g.clientB.send <- gameJSON
 
 	g.lastUpdateTime = time.Now()
+}
+func (g *Game) closeGame() {
+	g.Paused = true
+	g.clientA.send <- []byte(`{"type": "close"}`)
+	g.clientB.send <- []byte(`{"type": "close"}`)
+	g.clientA.ready = false
+	g.clientB.ready = false
+	panic("Closing Game")
 }
 
 func (g *Game) run() {
