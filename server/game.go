@@ -255,11 +255,10 @@ func (g *Game) update() {
 }
 func (g *Game) closeGame() {
 	g.Paused = true
-	g.clientA.send <- []byte(`{"type": "close"}`)
-	g.clientB.send <- []byte(`{"type": "close"}`)
+	g.clientA.send <- []byte(`{"type": "reset"}`)
+	g.clientB.send <- []byte(`{"type": "reset"}`)
 	g.clientA.ready = false
 	g.clientB.ready = false
-	panic("Closing Game")
 }
 
 func (g *Game) run() {
@@ -271,8 +270,15 @@ func (g *Game) run() {
 	}()
 
 	// Your update logic here
-	for range time.Tick(time.Second / 64) {
-		g.update()
+	ticker := time.NewTicker(time.Second / 64)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if g.clientA.ready && g.clientB.ready {
+			g.update()
+		} else {
+			break
+		}
 	}
 }
 func NewGame(clientA *Client, clientB *Client, ladder *Ladder) *Game {
