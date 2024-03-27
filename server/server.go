@@ -24,7 +24,6 @@ func NewServer(addr string) *Server {
 	}
 	ladder := NewLadder()
 	r := mux.NewRouter()
-	r.HandleFunc("/", logging(index))
 	r.HandleFunc("/upgrade", logging(func(w http.ResponseWriter, r *http.Request) {
 		ladder.ServeHTTP(w, r)
 	}))

@@ -74,14 +74,13 @@ func (l *Ladder) ladderTick() {
 	}
 	paired := PairList(unpairedClients)
 	for _, pair := range paired {
+
 		game := &Game{
 			clientA:        pair.First.(*Client),
 			clientB:        pair.Second.(*Client),
 			ladder:         l,
 			PlayerA:        &Paddle{Position: Position{X: 37.5, Y: 325}, Velocity: Velocity{VX: 0, VY: 0}, Width: 25, Height: 100},
 			PlayerB:        &Paddle{Position: Position{X: 962.5 - 25, Y: 325}, Velocity: Velocity{VX: 0, VY: 0}, Width: 25, Height: 100},
-			PlayerAHasBall: false,
-			PlayerBHasBall: false,
 			Ball:           &Ball{Position: Position{X: 500, Y: 375}, Velocity: Velocity{VX: 100, VY: 0}, Radius: 10},
 			ScoreA:         0,
 			ScoreB:         0,
@@ -113,6 +112,7 @@ func (l *Ladder) Shutdown(ctx context.Context) {
 }
 
 func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Failed to upgrade websocket:", err)

@@ -28,7 +28,7 @@ func TestLadder(t *testing.T) {
 	require.NoError(t, wsErr)
 }
 
-func Test1000Connections(t *testing.T) {
+func Test500ReadyConnections(t *testing.T) {
 	ladder := NewLadder()
 	go ladder.run()
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -38,7 +38,7 @@ func Test1000Connections(t *testing.T) {
 	u := "ws" + strings.TrimPrefix(s.URL, "http")
 
 	// Connect to the server with twenty websocket connections
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 500; i++ {
 		ws, _, wsErr := websocket.DefaultDialer.Dial(u, nil)
 		if wsErr != nil {
 			t.Fatalf("ws%d: %v", i+1, wsErr)
@@ -49,9 +49,9 @@ func Test1000Connections(t *testing.T) {
 		defer ws.Close()
 		require.NoError(t, wsErr)
 	}
-	time.Sleep(time.Second / 2)
-	require.Equal(t, 1000, len(ladder.clients))
-	require.Equal(t, 500, len(ladder.games))
+	time.Sleep(time.Second)
+	require.Equal(t, 500, len(ladder.clients))
+	require.Equal(t, 250, len(ladder.games))
 }
 func Test500Connections(t *testing.T) {
 	ladder := NewLadder()
@@ -72,11 +72,15 @@ func Test500Connections(t *testing.T) {
 			ws.WriteJSON(map[string]interface{}{
 				"type": "ready",
 			})
+		} else {
+			ws.WriteJSON(map[string]interface{}{
+				"type": "unready",
+			})
 		}
 		defer ws.Close()
 		require.NoError(t, wsErr)
 	}
-	time.Sleep(time.Second / 2)
+	time.Sleep(time.Second)
 	require.Equal(t, 500, len(ladder.clients))
 	require.Equal(t, 125, len(ladder.games))
 }

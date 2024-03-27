@@ -29,12 +29,12 @@ var upgrader = websocket.Upgrader{
 type Client struct {
 	ladder *Ladder
 	game   *Game
-	// The websocket connection.
-	conn  *websocket.Conn
-	send  chan []byte
-	up    bool
-	down  bool
-	ready bool
+	conn   *websocket.Conn
+	send   chan []byte
+	up     bool
+	down   bool
+	ready  bool
+	Name   string
 }
 
 func (c *Client) readPump() {
@@ -59,7 +59,7 @@ func (c *Client) readPump() {
 				log.Printf("error parsing message: %v", err)
 				continue
 			}
-			if c.ready && c.game != nil {
+			if c.game != nil {
 				if data["type"] == "input" {
 					if data["input"] == "down" {
 						c.down = data["status"] == "down"
@@ -71,6 +71,12 @@ func (c *Client) readPump() {
 			}
 			if data["type"] == "ready" {
 				c.ready = true
+				if name, ok := data["player"].(string); ok {
+					c.Name = name
+				}
+			}
+			if data["type"] == "unready" {
+				c.ready = false
 			}
 		} else {
 			c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
@@ -88,7 +94,6 @@ func (c *Client) writePump() {
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				// The hub closed the channel.
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
@@ -98,8 +103,6 @@ func (c *Client) writePump() {
 				return
 			}
 			w.Write(message)
-
-			// Add queued chat messages to the current websocket message.
 			n := len(c.send)
 			for i := 0; i < n; i++ {
 				w.Write(newline)

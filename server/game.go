@@ -36,8 +36,6 @@ type Game struct {
 	ladder         *Ladder
 	PlayerA        *Paddle
 	PlayerB        *Paddle
-	PlayerAHasBall bool
-	PlayerBHasBall bool
 	Ball           *Ball
 	ScoreA         int `json:"scoreA"`
 	ScoreB         int `json:"scoreB"`
@@ -156,6 +154,7 @@ func (g *Game) resolveLeftOrRightWallCollision() {
 	g.Ball.X = 500
 	g.Ball.Y = 375
 }
+
 func (g *Game) handleInput(deltaTime float64) {
 	if g.clientA.up && g.clientA.down {
 	} else if g.clientA.up {
@@ -215,8 +214,9 @@ func (g *Game) update() {
 	if !g.Started {
 		g.lastUpdateTime = time.Now()
 		g.Started = true
-		g.clientA.send <- []byte(`{"type": "begin"}`)
-		g.clientB.send <- []byte(`{"type": "begin"}`)
+		payload := []byte(`{"type": "begin", "clientA": "` + g.clientA.Name + `", "clientB": "` + g.clientB.Name + `"}`)
+		g.clientA.send <- payload
+		g.clientB.send <- payload
 	}
 	currentTime := time.Now()
 
@@ -274,4 +274,44 @@ func (g *Game) run() {
 	for range time.Tick(time.Second / 64) {
 		g.update()
 	}
+}
+func NewGame(clientA *Client, clientB *Client, ladder *Ladder) *Game {
+	ball := &Ball{
+		Position: Position{X: 500, Y: 375},
+		Velocity: Velocity{VX: 200, VY: 0},
+		Radius:   10,
+	}
+
+	paddleWidth := 25
+	paddleHeight := 100
+
+	playerA := &Paddle{
+		Position: Position{X: 37.5, Y: 325},
+		Velocity: Velocity{VX: 0, VY: 0},
+		Width:    float64(paddleWidth),
+		Height:   float64(paddleHeight),
+	}
+
+	playerB := &Paddle{
+		Position: Position{X: 937.5, Y: 325},
+		Velocity: Velocity{VX: 0, VY: 0},
+		Width:    float64(paddleWidth),
+		Height:   float64(paddleHeight),
+	}
+
+	game := &Game{
+		clientA:        clientA,
+		clientB:        clientB,
+		ladder:         ladder,
+		PlayerA:        playerA,
+		PlayerB:        playerB,
+		Ball:           ball,
+		ScoreA:         0,
+		ScoreB:         0,
+		lastUpdateTime: time.Now(),
+		Started:        false,
+		Paused:         false,
+	}
+
+	return game
 }
