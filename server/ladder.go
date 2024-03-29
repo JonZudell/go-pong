@@ -8,12 +8,14 @@ import (
 )
 
 type Ladder struct {
-	clients    map[*Client]bool
-	games      map[*Game]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	log        [][]byte
+	clients        map[*Client]bool
+	games          map[*Game]bool
+	broadcast      chan []byte
+	register       chan *Client
+	unregister     chan *Client
+	gameRegister   chan *Game
+	gameUnregister chan *Game
+	log            [][]byte
 }
 type Pair struct {
 	First, Second interface{}
@@ -28,22 +30,18 @@ func PairList(list []*Client) []Pair {
 }
 func NewLadder() *Ladder {
 	return &Ladder{
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
-		games:      make(map[*Game]bool),
-	}
-}
-func (l *Ladder) unregisterClients(client *Client) {
-	log.Println("Unregistering Client")
-	if _, ok := l.clients[client]; ok {
-		delete(l.clients, client)
-		close(client.send)
+		clients:        make(map[*Client]bool),
+		games:          make(map[*Game]bool),
+		broadcast:      make(chan []byte),
+		register:       make(chan *Client),
+		unregister:     make(chan *Client),
+		gameRegister:   make(chan *Game),
+		gameUnregister: make(chan *Game),
+		log:            [][]byte{},
 	}
 }
 func (l *Ladder) run() {
-	ticker := time.NewTicker(time.Second / 128)
+	ticker := time.NewTicker(time.Second)
 
 	for {
 		select {
@@ -54,7 +52,19 @@ func (l *Ladder) run() {
 				client.send <- l.log[line]
 			}
 		case client := <-l.unregister:
-			l.unregisterClients(client)
+			log.Println("Unregistering Client")
+			if _, ok := l.clients[client]; ok {
+				delete(l.clients, client)
+				close(client.send)
+			}
+		case game := <-l.gameRegister:
+			log.Println("Registering Game")
+			l.games[game] = true
+		case game := <-l.gameUnregister:
+			log.Println("Unregistering Game")
+			if _, ok := l.games[game]; ok {
+				delete(l.games, game)
+			}
 		case <-ticker.C:
 			l.ladderTick()
 		}
@@ -81,7 +91,7 @@ func (l *Ladder) ladderTick() {
 			ladder:         l,
 			PlayerA:        &Paddle{Position: Position{X: 37.5, Y: 325}, Velocity: Velocity{VX: 0, VY: 0}, Width: 25, Height: 100},
 			PlayerB:        &Paddle{Position: Position{X: 962.5 - 25, Y: 325}, Velocity: Velocity{VX: 0, VY: 0}, Width: 25, Height: 100},
-			Ball:           &Ball{Position: Position{X: 500, Y: 375}, Velocity: Velocity{VX: 100, VY: 0}, Radius: 10},
+			Ball:           &Ball{Position: Position{X: 500, Y: 375}, Velocity: Velocity{VX: 400, VY: 0}, Radius: 10},
 			ScoreA:         0,
 			ScoreB:         0,
 			lastUpdateTime: time.Time{},
@@ -92,7 +102,13 @@ func (l *Ladder) ladderTick() {
 		pair.Second.(*Client).game = game
 		l.games[game] = true
 		go game.run()
+
 	}
+	log.Printf("Number of clients: %d", len(l.clients))
+	log.Printf("Number of games: %d", len(l.games))
+	log.Printf("Number of clients in game: %d", len(clientsInGame))
+	log.Printf("Number of unpaired clients: %d", len(unpairedClients))
+	log.Printf("Number of paired clients: %d", len(paired))
 }
 
 func contains(clientsInGame []*Client, client *Client) bool {

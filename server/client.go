@@ -100,6 +100,7 @@ func (c *Client) writePump() {
 
 			w, err := c.conn.NextWriter(websocket.TextMessage)
 			if err != nil {
+				log.Println("Write pump error:", err)
 				return
 			}
 			w.Write(message)

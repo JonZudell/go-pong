@@ -42,6 +42,7 @@ type Game struct {
 	lastUpdateTime time.Time
 	Started        bool
 	Paused         bool
+	Ended          bool
 }
 
 // Encode game as JSON
@@ -254,19 +255,21 @@ func (g *Game) update() {
 	g.lastUpdateTime = time.Now()
 }
 func (g *Game) closeGame() {
-	g.Paused = true
-	g.clientA.send <- []byte(`{"type": "reset"}`)
-	g.clientB.send <- []byte(`{"type": "reset"}`)
+	g.Ended = true
 	g.clientA.ready = false
 	g.clientB.ready = false
+	g.clientA.send <- []byte(`{"type": "reset"}`)
+	g.clientB.send <- []byte(`{"type": "reset"}`)
+	g.ladder.gameUnregister <- g
 }
 
 func (g *Game) run() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("Killing game in a Panic", r)
-			g.ladder.RemoveGame(g)
+			g.ladder.gameUnregister <- g
 		}
+		log.Println("cleaning up game")
 	}()
 
 	// Your update logic here
@@ -274,7 +277,7 @@ func (g *Game) run() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if g.clientA.ready && g.clientB.ready {
+		if !g.Ended {
 			g.update()
 		} else {
 			break
