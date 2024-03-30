@@ -33,7 +33,6 @@ func NewServer(addr string) *Server {
 
 func (s *Server) Shutdown(ctx context.Context) {
 	s.server.Shutdown(ctx)
-	s.ladder.Shutdown(ctx)
 }
 
 func (s *Server) ListenAndServe() {
@@ -47,14 +46,6 @@ func (s *Server) ListenAndServe() {
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	s.server.Handler.ServeHTTP(w, req)
 }
-
-//go:embed static/index.html
-var s string
-
-func index(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(s))
-}
-
 func logging(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Println(r.URL.Path)
