@@ -59,7 +59,7 @@ func TestNConnections(t *testing.T) {
 
 	time.Sleep(time.Second)
 	// Check the number of connections
-	require.Equal(t, connections, len(ladder.conns))
+	require.Equal(t, connections, len(ladder.clients))
 
 	// Close all the connections
 	for _, ws := range websockets {
@@ -69,6 +69,6 @@ func TestNConnections(t *testing.T) {
 		}
 	}
 	time.Sleep(time.Second)
-	require.Equal(t, 0, len(ladder.conns))
+	require.Equal(t, 0, len(ladder.clients))
 
 }
