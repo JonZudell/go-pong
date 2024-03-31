@@ -68,7 +68,7 @@ func TestNConnections(t *testing.T) {
 			t.Fatalf("ws close: %v", err)
 		}
 	}
-	time.Sleep(time.Second / 4)
+	time.Sleep(time.Second)
 	require.Equal(t, 0, len(ladder.conns))
 
 }
