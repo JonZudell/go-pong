@@ -12,6 +12,6 @@ RUN go mod download
 
 # Copy the rest of the application source code
 COPY . .
-RUN go build
+RUN go build -buildvcs=false -o go-pong
 # Set the command to run the executable
 CMD ["./go-pong"]
