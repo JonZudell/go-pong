@@ -24,6 +24,15 @@ func NewServer(addr string) *Server {
 	}
 	ladder := NewLadder()
 	r := mux.NewRouter()
+	r.HandleFunc("/healthcheck", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	r.HandleFunc("/readiness", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Ready"))
+	})
 	r.HandleFunc("/upgrade", logging(func(w http.ResponseWriter, r *http.Request) {
 		ladder.ServeHTTP(w, r)
 	}))
