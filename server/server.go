@@ -45,9 +45,9 @@ func (s *Server) Shutdown(ctx context.Context) {
 	s.ladder.Shutdown(ctx)
 }
 
-func (s *Server) ListenAndServe() {
+func (s *Server) ListenAndServeTLS() {
 	go s.ladder.run()
-	err := s.server.ListenAndServe()
+	err := s.server.ListenAndServeTLS("/etc/secrets/tls.crt", "/etc/secrets/tls.key")
 	if err != nil {
 		log.Println("ListenAndServe: ", err)
 	}

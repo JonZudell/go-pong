@@ -24,7 +24,7 @@ func main() {
 
 	log.Println("ListenAndServe")
 
-	server.ListenAndServe()
+	server.ListenAndServeTLS()
 
 	log.Println("Clean Shutdown")
 }
