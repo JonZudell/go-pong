@@ -34,6 +34,7 @@ type Client struct {
 	up     bool
 	down   bool
 	ready  bool
+	closed bool
 	Name   string
 }
 
@@ -48,6 +49,7 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				c.closed = true
 				log.Printf("error: %v", err)
 			}
 			break

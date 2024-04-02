@@ -55,7 +55,9 @@ func (l *Ladder) run() {
 			log.Println("Unregistering Client")
 			if _, ok := l.clients[client]; ok {
 				delete(l.clients, client)
-				close(client.send)
+				if client.closed == false {
+					close(client.send)
+				}
 			}
 		case game := <-l.gameRegister:
 			log.Println("Registering Game")
