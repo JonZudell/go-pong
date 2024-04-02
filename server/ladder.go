@@ -99,6 +99,7 @@ func (l *Ladder) ladderTick() {
 			lastUpdateTime: time.Time{},
 			Started:        false,
 			Paused:         false,
+			Ended:          false,
 		}
 		pair.First.(*Client).game = game
 		pair.Second.(*Client).game = game
