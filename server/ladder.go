@@ -138,7 +138,7 @@ func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Println("Failed to upgrade websocket:", err)
 		return
 	}
-	client := &Client{ladder: l, conn: conn}
+	client := &Client{ladder: l, conn: conn, send: make(chan []byte, 256), ready: false, closed: false, Name: ""}
 	client.ladder.register <- client
 
 	go client.writePump()
