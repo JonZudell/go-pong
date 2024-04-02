@@ -128,6 +128,7 @@ func (l *Ladder) Shutdown(ctx context.Context) {
 }
 
 func (l *Ladder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
